@@ -6,11 +6,12 @@
 //
 
 import SwiftUI
+import simd
 
 let size = CGSize(width: 400, height: 400)
 
 struct ContentView: View {
-    let timer = Timer.publish(every: 0.01, on: .main, in: .common).autoconnect()
+    let timer = Timer.publish(every: 0.005, on: .main, in: .common).autoconnect()
 
     var dot = [10.0, 40.0, 30.0]
 
@@ -20,7 +21,7 @@ struct ContentView: View {
         [0.0, 0.0, 0.0]
     ]
 
-    let scale = 150.0
+    let scale = 100.0
 
     @State var points = [CIVector(x: -0.5, y: -0.5, z: 0.5),
                          CIVector(x: 0.5, y: -0.5, z: 0.5),
@@ -32,33 +33,59 @@ struct ContentView: View {
                          CIVector(x: 0.5, y: 0.5, z: -0.5)
     ]
 
-    @State var angle = 0.0
+    @State var angleX = 0.0
+    @State var angleY = 0.0
+    @State var angleZ = 0.0
+
+    @State var angleXChange = 0.0
+    @State var angleYChange = 0.0
+    @State var angleZChange = 0.0
+
 
     var body: some View {
         VStack {
             Canvas { context, size in
                 for point in points {
-                    var newPoint = rotateX(point: point, angle: angle)
-                    newPoint = rotateZ(point: newPoint, angle: angle)
-//                    newPoint = rotateX(point: newPoint, angle: angle)
-                    let useZ = newPoint.z
+                    var newPoint = rotateZ(point: point, angle: angleZ)
+                    newPoint = rotateX(point: newPoint, angle: angleX)
+                    newPoint = rotateY(point: newPoint, angle: angleY)
+                    let usePoint = newPoint.z
                     newPoint = matrixMultiply(matrix: projMatrix, point: newPoint)!
-                    let scalePoint = (useZ + 1.5) * 20
+                    let scalePoint = (usePoint + 1.5) * (scale / 8)
                     context.fill(
                         Path(roundedRect:
                                 CGRect(origin: CGPoint(x: (newPoint.x * scale) + (size.width / 2), y: (newPoint.y * scale) + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
                              cornerSize: CGSize(width: scalePoint, height: scalePoint)),
-                        with: (.color(.white))
+                        with: (.color(.blue))
                     )
                 }
             }
-//            Text("\(points.description)")
+            .gesture(
+                DragGesture().onChanged { value in
+                    print("translation: ", value.translation)
+                    angleYChange = -value.translation.width / 6000
+                    angleXChange = value.translation.height / 6000
+                }
+                    .onEnded { value in
+                        angleXChange = 0
+                        angleYChange = 0
+                        angleZChange = 0
+                    }
+            )
         }
         .padding()
         .onReceive(timer, perform: { _ in
-            angle += 0.01
-            if angle > .pi * 2 {
-                angle -= .pi * 2
+            angleX += angleXChange
+            if angleX > .pi * 2 {
+                angleX -= .pi * 2
+            }
+            angleY -= angleYChange
+            if angleY > .pi * 2 {
+                angleY -= .pi * 2
+            }
+            angleZ -= angleZChange
+            if angleZ > .pi * 2 {
+                angleZ -= .pi * 2
             }
         })
         .onAppear {
