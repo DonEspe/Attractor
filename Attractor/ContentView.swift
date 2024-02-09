@@ -51,6 +51,9 @@ struct ContentView: View {
     @State var angleZChange = 0.0
 
     @State var useCube = false
+    @State var paused  = false
+    @State private var currentZoom = 0.0
+    @State private var totalZoom = 1.0
 
 
     var body: some View {
@@ -76,14 +79,14 @@ struct ContentView: View {
                     var useColor:GraphicsContext.Shading = .color(.blue)
                     let usePoint = point.z
                     let newPoint = matrixMultiply(matrix: projMatrix, point: point)!
-                    var scalePoint = (usePoint + 1.5) * (150 / 8) //(usePoint + 1.5) * (scale / 8)
+                    var scalePoint = ((usePoint + 1.5) * (150 / 8)) * totalZoom //(usePoint + 1.5) * (scale / 8)
                     if point.w < 0 {
                         useColor = .color(.green)
                     }
-                    var useScale = 150.0
+                    var useScale = 150.0 * totalZoom
                     if ignoreScale && !useCube {
                         scalePoint = 4
-                        useScale = 4
+                        useScale = 4 * totalZoom
                         useColor = .color(Color(hue: i, saturation: 1, brightness: 1))
                     }
 
@@ -100,6 +103,28 @@ struct ContentView: View {
                 }
             }
             .gesture(
+                MagnifyGesture().onChanged { value in
+                    currentZoom = (value.magnification - 1) / 2.0
+                    totalZoom += currentZoom
+                    if totalZoom < 0.11 {
+                        totalZoom = 0.11
+                    }
+                    if totalZoom > 20 {
+                        totalZoom = 20
+                    }
+                }
+                    .onEnded { value in
+                        totalZoom += currentZoom
+                        if totalZoom < 0.11 {
+                            totalZoom = 0.11
+                        }
+                        if totalZoom > 20 {
+                            totalZoom = 20
+                        }
+                        currentZoom = 0
+                    }
+            )
+            .simultaneousGesture(
                 DragGesture().onChanged { value in
 //                    print("translation: ", value.translation)
 //                    print("angles: x: ", angleX, ", y: ", angleY, ", z: ", angleZ)
@@ -116,12 +141,15 @@ struct ContentView: View {
             Toggle(isOn: $useCube) {
                 Text("Use Cube")
             }
+            Toggle(isOn: $paused ) {
+                Text("Pause")
+            }
         }
         .padding()
         .onReceive(timer, perform: { _ in
             if !useCube  {
-                if points.count < 5000 {
-                    var lastPoint = CIVector(x: points.last!.x, y: points.last!.y, z: points.last!.z)
+                if points.count < 5000 && !paused {
+                    let lastPoint = CIVector(x: points.last!.x, y: points.last!.y, z: points.last!.z)
                     let lorenzPoint = lorenz(point: points.last!)
                     let usePoint = CIVector(x: lastPoint.x + lorenzPoint.x * dt, y: lastPoint.y + lorenzPoint.y * dt, z: lastPoint.z + lorenzPoint.z * dt, w: lastPoint.z)
                     points.append(usePoint)
@@ -175,26 +203,6 @@ struct ContentView: View {
         return CIVector(x: newX, y: newY, z: newZ)
     }
 
-//    def lorenz(xyz, *, s=10, r=28, b=2.667):
-//    """
-//    Parameters
-//    ----------
-//    xyz : array-like, shape (3,)
-//       Point of interest in three-dimensional space.
-//    s, r, b : float
-//       Parameters defining the Lorenz attractor.
-//
-//    Returns
-//    -------
-//    xyz_dot : array, shape (3,)
-//       Values of the Lorenz attractor's partial derivatives at *xyz*.
-//    """
-//    x, y, z = xyz
-//    x_dot = s*(y - x)
-//    y_dot = r*x - y - x*z
-//    z_dot = x*y - b*z
-//    return np.array([x_dot, y_dot, z_dot])
-
     func rotateX(point: CIVector, angle: CGFloat) -> CIVector {
         let matrix = [[1.0, 0.0, 0.0],
                       [0.0, cos(angle), -sin(angle)],
@@ -223,7 +231,6 @@ struct ContentView: View {
         guard !matrix.isEmpty else { return nil}
         let matrixRows = matrix.count
         let usePoint = [point.x, point.y, point.z]
-        let pointRows = point.count
 
         var tempArray = Array(repeating: 0.0, count: matrixRows)
 
