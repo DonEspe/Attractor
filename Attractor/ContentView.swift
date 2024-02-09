@@ -45,25 +45,44 @@ struct ContentView: View {
     var body: some View {
         VStack {
             Canvas { context, size in
-                for point in points {
+
+                //This loop does the rotations and then the array is sorted by the z values so they will be drawn from front to back.
+                var usePoints = points
+                for (index, point) in points.enumerated() {
                     var newPoint = rotateZ(point: point, angle: angleZ)
                     newPoint = rotateX(point: newPoint, angle: angleX)
                     newPoint = rotateY(point: newPoint, angle: angleY)
-                    let usePoint = newPoint.z
-                    newPoint = matrixMultiply(matrix: projMatrix, point: newPoint)!
+                    newPoint = CIVector(x: newPoint.x, y: newPoint.y, z: newPoint.z, w: point.z)
+                    usePoints[index] = newPoint
+                }
+
+                usePoints.sort {
+                    $0.z < $1.z
+                }
+                for (index, point) in usePoints.enumerated() {
+                    var useColor:GraphicsContext.Shading = .color(.blue)
+//                    var newPoint = rotateZ(point: point, angle: angleZ)
+//                    newPoint = rotateX(point: newPoint, angle: angleX)
+//                    newPoint = rotateY(point: newPoint, angle: angleY)
+                    let usePoint = point.z
+                    let newPoint = matrixMultiply(matrix: projMatrix, point: point)!
                     let scalePoint = (usePoint + 1.5) * (scale / 8)
+                    if point.w < 0 {
+                        useColor = .color(.green)
+                    }
                     context.fill(
                         Path(roundedRect:
                                 CGRect(origin: CGPoint(x: (newPoint.x * scale) + (size.width / 2), y: (newPoint.y * scale) + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
                              cornerSize: CGSize(width: scalePoint, height: scalePoint)),
-                        with: (.color(.blue))
+                        with: (useColor)
                     )
                 }
             }
             .gesture(
                 DragGesture().onChanged { value in
                     print("translation: ", value.translation)
-                    angleYChange = -value.translation.width / 6000
+                    print("angles: x: ", angleX, ", y: ", angleY, ", z: ", angleZ)
+                    angleYChange = value.translation.width / 6000
                     angleXChange = value.translation.height / 6000
                 }
                     .onEnded { value in
@@ -75,11 +94,14 @@ struct ContentView: View {
         }
         .padding()
         .onReceive(timer, perform: { _ in
-            angleX += angleXChange
+            angleX -= angleXChange
             if angleX > .pi * 2 {
                 angleX -= .pi * 2
             }
-            angleY -= angleYChange
+            if angleX < 0 {
+                angleX += .pi * 2
+            }
+            angleY += angleYChange
             if angleY > .pi * 2 {
                 angleY -= .pi * 2
             }
@@ -123,10 +145,10 @@ struct ContentView: View {
         let usePoint = [point.x, point.y, point.z]
         let pointRows = point.count
 
-        guard matrixColumns == pointRows else {
-            print("matrix columns must equal point rows")
-            return nil
-        }
+//        guard matrixColumns == pointRows else {
+//            print("matrix columns must equal point rows")
+//            return nil
+//        }
 
         var tempArray = Array(repeating: 0.0, count: matrixRows)
 
