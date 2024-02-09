@@ -8,6 +8,8 @@
 import SwiftUI
 import simd
 
+
+//FIXME: add reset button to reset offset and zoom...
 let size = CGSize(width: 400, height: 400)
 
 struct ContentView: View {
@@ -55,18 +57,58 @@ struct ContentView: View {
     @State private var currentZoom = 0.0
     @State private var totalZoom = 1.0
 
+    @State private var offset = CGSize.zero
+    @State private var isDragging = false
+    @State private var previousOffset = CGSize.zero
 
     var body: some View {
+        // a drag gesture that updates offset and isDragging as it moves around
+        let dragGesture = DragGesture()
+            .onChanged { value in
+                var useScale = 4.0
+                if useCube {
+                    useScale = 150.0
+                }
+                offset.width = previousOffset.width + (value.translation.width / (useScale * totalZoom))
+                offset.height = previousOffset.height + (value.translation.height / (useScale * totalZoom))
+            }
+            .onEnded { _ in
+                withAnimation {
+                    self.previousOffset = offset
+                    isDragging = false
+                }
+            }
+
+        // a long press gesture that enables isDragging
+        let pressGesture = LongPressGesture()
+            .onEnded { value in
+                withAnimation {
+                    isDragging = true
+                }
+            }
+
+        // a combined gesture that forces the user to long press then drag
+        let combined = pressGesture.sequenced(before: dragGesture)
+
         VStack {
             Canvas { context, size in
-
                 //This loop does the rotations and then the array is sorted by the z values so they will be drawn from front to back.
                 var usePoints = points
+                var useScale = 150.0 * totalZoom
+
+                if ignoreScale && !useCube {
+                    useScale = 4 * totalZoom
+                }
+                let useOffset = CGSize(width: offset.width , height: offset.height )
+
                 for (index, point) in points.enumerated() {
+//                    let offsetPoint = CIVector(x: point.x + offset.width / useScale, y: point.y + offset.height / useScale, z: point.z)
+
                     var newPoint = rotateZ(point: point, angle: angleZ)
                     newPoint = rotateX(point: newPoint, angle: angleX)
                     newPoint = rotateY(point: newPoint, angle: angleY)
                     newPoint = CIVector(x: newPoint.x, y: newPoint.y, z: newPoint.z, w: point.z)
+//                    newPoint = CIVector(x: newPoint.x + (offset.width / useScale), y: newPoint.y + (offset.height / useScale), z: newPoint.z, w: point.z)
                     usePoints[index] = newPoint
                 }
                 if useCube {
@@ -83,27 +125,26 @@ struct ContentView: View {
                     if point.w < 0 {
                         useColor = .color(.green)
                     }
-                    var useScale = 150.0 * totalZoom
                     if ignoreScale && !useCube {
-                        scalePoint = 4
-                        useScale = 4 * totalZoom
+                        scalePoint = 4.0
                         useColor = .color(Color(hue: i, saturation: 1, brightness: 1))
                     }
 
                     context.fill(
                         Path(roundedRect:
-                                CGRect(origin: CGPoint(x: (newPoint.x * useScale) + (size.width / 2), y: (newPoint.y * useScale) + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
+                                CGRect(origin: CGPoint(x: ((newPoint.x + (useOffset.width) ) * useScale) + (size.width / 2), y: ((newPoint.y + (useOffset.height )) * useScale) + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
                              cornerSize: CGSize(width: scalePoint, height: scalePoint)),
                         with: (useColor)
                     )
-                    i += 0.01
+                    i += 0.005
                     if i > 1 {
                         i = 0
                     }
                 }
             }
+//            .scaleEffect(0.5) //maybe use this?
             .gesture(
-                MagnifyGesture().onChanged { value in
+                MagnifyGesture().onChanged { value in  //TODO: try to use this to move the shape...
                     currentZoom = (value.magnification - 1) / 2.0
                     totalZoom += currentZoom
                     if totalZoom < 0.11 {
@@ -124,12 +165,15 @@ struct ContentView: View {
                         currentZoom = 0
                     }
             )
+            .simultaneousGesture(combined)
             .simultaneousGesture(
                 DragGesture().onChanged { value in
 //                    print("translation: ", value.translation)
 //                    print("angles: x: ", angleX, ", y: ", angleY, ", z: ", angleZ)
-                    angleYChange = value.translation.width / 6000
-                    angleXChange = value.translation.height / 6000
+                    if !isDragging {
+                        angleYChange = value.translation.width / 6000
+                        angleXChange = value.translation.height / 6000
+                    }
                 }
                     .onEnded { value in
                         angleXChange = 0
