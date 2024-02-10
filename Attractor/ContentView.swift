@@ -8,8 +8,6 @@
 import SwiftUI
 import simd
 
-
-//FIXME: add reset button to reset offset and zoom...
 let size = CGSize(width: 400, height: 400)
 
 struct ContentView: View {
@@ -144,23 +142,25 @@ struct ContentView: View {
             }
 //            .scaleEffect(0.5) //maybe use this?
             .gesture(
-                MagnifyGesture().onChanged { value in  //TODO: try to use this to move the shape...
-                    currentZoom = (value.magnification - 1) / 2.0
+                MagnifyGesture().onChanged { value in  
+
+                    currentZoom = (value.magnification - 1.1) / 5.0
+//                    print("zoom value: ", value.magnification, ", currentZoom: ", currentZoom)
                     totalZoom += currentZoom
-                    if totalZoom < 0.11 {
-                        totalZoom = 0.11
+                    if totalZoom < 0.1 {
+                        totalZoom = 0.1
                     }
-                    if totalZoom > 20 {
-                        totalZoom = 20
+                    if totalZoom > 30 {
+                        totalZoom = 30
                     }
                 }
                     .onEnded { value in
                         totalZoom += currentZoom
-                        if totalZoom < 0.11 {
-                            totalZoom = 0.11
+                        if totalZoom < 0.1 {
+                            totalZoom = 0.1
                         }
-                        if totalZoom > 20 {
-                            totalZoom = 20
+                        if totalZoom > 30 {
+                            totalZoom = 30
                         }
                         currentZoom = 0
                     }
@@ -181,13 +181,32 @@ struct ContentView: View {
                         angleZChange = 0
                     }
             )
+
+            if isDragging {
+                Text("Drag")
+                    .foregroundStyle(.blue)
+            } else {
+                Text("Rotate (hold to drag)")
+                    .foregroundStyle(.blue)
+            }
+            Spacer()
             Text("Number of points: \(points.count)")
+
             Toggle(isOn: $useCube) {
                 Text("Use Cube")
             }
             Toggle(isOn: $paused ) {
                 Text("Pause")
             }
+            Button( action: {
+                offset = CGSizeZero
+                angleX = 0
+                angleY = 0
+                angleZ = 0
+                totalZoom = 1.0
+            }, label: {
+                Text("Reset")
+            })
         }
         .padding()
         .onReceive(timer, perform: { _ in
