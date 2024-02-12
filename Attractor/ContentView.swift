@@ -13,8 +13,6 @@ let size = CGSize(width: 400, height: 400)
 struct ContentView: View {
     let timer = Timer.publish(every: 0.005, on: .main, in: .common).autoconnect()
 
-    var dot = [10.0, 40.0, 30.0]
-
     var s = 10.0
     var r = 28.0
     var b = 2.667
@@ -62,22 +60,12 @@ struct ContentView: View {
     var body: some View {
         // a drag gesture that updates offset and isDragging as it moves around
         let dragGesture = DragGesture()
-            .onChanged { value in
-
-//                var useScale = 4.0
-//                if useCube {
-//                    useScale = 150.0
-//                }
-//                offset.width = previousOffset.width + (value.translation.width / (useScale * totalZoom))
-//                offset.height = previousOffset.height + (value.translation.height / (useScale * totalZoom))
-            }
             .onEnded { _ in
                 withAnimation {
                     self.previousOffset = offset
                     isDragging = false
                 }
             }
-
         // a long press gesture that enables isDragging
         let pressGesture = LongPressGesture()
             .onEnded { value in
@@ -85,7 +73,6 @@ struct ContentView: View {
                     isDragging = true
                 }
             }
-
         // a combined gesture that forces the user to long press then drag
         let combined = pressGesture.sequenced(before: dragGesture)
 
@@ -98,17 +85,14 @@ struct ContentView: View {
                 if ignoreScale && !useCube {
                     useScale = 4 * totalZoom
                 }
-                let useOffset = CGSize(width: offset.width , height: offset.height )
 
                 for (index, point) in points.enumerated() {
-//                    let offsetPoint = CIVector(x: point.x + offset.width / useScale, y: point.y + offset.height / useScale, z: point.z)
 
                     var newPoint = rotateZ(point: point, angle: angleZ)
                     newPoint = rotateX(point: newPoint, angle: angleX)
                     newPoint = rotateY(point: newPoint, angle: angleY)
                     newPoint = CIVector(x: (newPoint.x + offset.width) * useScale  , y: (newPoint.y + offset.height) * useScale, z: newPoint.z, w: newPoint.z)
                     newPoint = CIVector(x: newPoint.x, y: newPoint.y, z: newPoint.z, w: point.z)
-//                    newPoint = CIVector(x: newPoint.x + (offset.width / useScale), y: newPoint.y + (offset.height / useScale), z: newPoint.z, w: point.z)
                     usePoints[index] = newPoint
                 }
                 if useCube {
@@ -155,7 +139,6 @@ struct ContentView: View {
                 MagnifyGesture().onChanged { value in  
 
                     currentZoom = (value.magnification - 1.1) / 5.0
-//                    print("zoom value: ", value.magnification, ", currentZoom: ", currentZoom)
                     totalZoom += currentZoom
                     if totalZoom < 0.1 {
                         totalZoom = 0.1
@@ -178,8 +161,7 @@ struct ContentView: View {
             .simultaneousGesture(combined)
             .simultaneousGesture(
                 DragGesture().onChanged { value in
-//                    print("translation: ", value.translation)
-//                    print("angles: x: ", angleX, ", y: ", angleY, ", z: ", angleZ)
+
                     if !isDragging {
                         angleYChange = value.translation.width / 6000
                         angleXChange = value.translation.height / 6000
@@ -251,7 +233,6 @@ struct ContentView: View {
                           CIVector(x: 0.5, y: 0.5, z: -0.5)
                 ]
             }
-//            print(usePoint)
 
             angleX -= angleXChange
             if angleX > .pi * 2 {
