@@ -63,12 +63,13 @@ struct ContentView: View {
         // a drag gesture that updates offset and isDragging as it moves around
         let dragGesture = DragGesture()
             .onChanged { value in
-                var useScale = 4.0
-                if useCube {
-                    useScale = 150.0
-                }
-                offset.width = previousOffset.width + (value.translation.width / (useScale * totalZoom))
-                offset.height = previousOffset.height + (value.translation.height / (useScale * totalZoom))
+
+//                var useScale = 4.0
+//                if useCube {
+//                    useScale = 150.0
+//                }
+//                offset.width = previousOffset.width + (value.translation.width / (useScale * totalZoom))
+//                offset.height = previousOffset.height + (value.translation.height / (useScale * totalZoom))
             }
             .onEnded { _ in
                 withAnimation {
@@ -105,6 +106,7 @@ struct ContentView: View {
                     var newPoint = rotateZ(point: point, angle: angleZ)
                     newPoint = rotateX(point: newPoint, angle: angleX)
                     newPoint = rotateY(point: newPoint, angle: angleY)
+                    newPoint = CIVector(x: (newPoint.x + offset.width) * useScale  , y: (newPoint.y + offset.height) * useScale, z: newPoint.z, w: newPoint.z)
                     newPoint = CIVector(x: newPoint.x, y: newPoint.y, z: newPoint.z, w: point.z)
 //                    newPoint = CIVector(x: newPoint.x + (offset.width / useScale), y: newPoint.y + (offset.height / useScale), z: newPoint.z, w: point.z)
                     usePoints[index] = newPoint
@@ -119,18 +121,26 @@ struct ContentView: View {
                     var useColor:GraphicsContext.Shading = .color(.blue)
                     let usePoint = point.z
                     let newPoint = matrixMultiply(matrix: projMatrix, point: point)!
-                    var scalePoint = ((usePoint + 1.5) * (150 / 8)) * totalZoom //(usePoint + 1.5) * (scale / 8)
+                    var scalePoint = ((usePoint + 1.5) * (useScale / 8)) * totalZoom //(usePoint + 1.5) * (scale / 8)
+
                     if point.w < 0 {
                         useColor = .color(.green)
                     }
                     if ignoreScale && !useCube {
-                        scalePoint = 4.0
+                        scalePoint = (((usePoint + 20) * (useScale / 8)) * totalZoom) / 20 //scalePoint / 15
+                        if scalePoint < 0.1 {
+                            scalePoint = 0.1
+                        }
+
+                        if scalePoint > 15 {
+                            scalePoint = 15
+                        }
                         useColor = .color(Color(hue: i, saturation: 1, brightness: 1))
                     }
 
                     context.fill(
                         Path(roundedRect:
-                                CGRect(origin: CGPoint(x: ((newPoint.x + (useOffset.width) ) * useScale) + (size.width / 2), y: ((newPoint.y + (useOffset.height )) * useScale) + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
+                                CGRect(origin: CGPoint(x: (newPoint.x  ) + (size.width / 2), y: (newPoint.y )  + (size.height / 2)), size: CGSize(width:  scalePoint, height: scalePoint)),
                              cornerSize: CGSize(width: scalePoint, height: scalePoint)),
                         with: (useColor)
                     )
@@ -173,22 +183,35 @@ struct ContentView: View {
                     if !isDragging {
                         angleYChange = value.translation.width / 6000
                         angleXChange = value.translation.height / 6000
+                    } else {
+                        var useScale = 4.0
+                        if useCube {
+                            useScale = 150.0
+                        }
+                        offset.width = previousOffset.width + (value.translation.width / (useScale * totalZoom))
+                        offset.height = previousOffset.height + (value.translation.height / (useScale * totalZoom))
                     }
                 }
                     .onEnded { value in
+                        self.previousOffset = offset
                         angleXChange = 0
                         angleYChange = 0
                         angleZChange = 0
                     }
             )
 
-            if isDragging {
-                Text("Drag")
-                    .foregroundStyle(.blue)
-            } else {
-                Text("Rotate (hold to drag)")
-                    .foregroundStyle(.blue)
-            }
+            Button( action: {
+                isDragging.toggle()
+            }, label: {
+                if isDragging {
+                    Text("Drag")
+                        .foregroundStyle(.blue)
+                } else {
+                    Text("Rotate (hold to drag)")
+                        .foregroundStyle(.blue)
+                }
+            })
+
             Spacer()
             Text("Number of points: \(points.count)")
 
